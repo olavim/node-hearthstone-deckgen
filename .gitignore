@@ -1,0 +1,25 @@
+# Node and coverage
+node_modules/
+coverage
+.nyc_output
+xunit-test-results.xml
+
+# Project Development files
+*.log
+/.env
+/.clients
+/k8s/
+/dist/
+/lib/
+
+# Editor config
+/.project
+/.settings
+/.idea
+/.vscode
+
+# Random
+.DS_Store
+next_git_comment.txt
+mingw32
+jsconfig.json
