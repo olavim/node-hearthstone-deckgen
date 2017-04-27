@@ -1,6 +1,31 @@
 import React from 'react';
 import axios from 'axios';
 import _ from 'lodash';
+import {
+	TextField,
+	RaisedButton,
+	FlatButton,
+	Divider,
+	Paper,
+	MenuItem,
+	SelectField,
+	Dialog,
+	IconButton,
+	Chip
+} from 'material-ui';
+import {
+	Table,
+	TableBody,
+	TableHeader,
+	TableHeaderColumn,
+	TableRow,
+	TableRowColumn
+} from 'material-ui/Table';
+import {Tabs, Tab} from 'material-ui/Tabs';
+import {Toolbar, ToolbarGroup} from 'material-ui/Toolbar';
+import RefreshIndicator from 'material-ui/RefreshIndicator';
+import FileUploadIcon from 'material-ui/svg-icons/file/file-upload';
+import SettingsIcon from 'material-ui/svg-icons/action/settings';
 import classes from './style.scss';
 
 const Status = {
@@ -14,6 +39,7 @@ const Status = {
 export default class App extends React.Component {
 	state = {
 		status: Status.NOT_INITIALIZED,
+		selectedFile: null,
 		username: '',
 		standardCards: null,
 		cards: [],
@@ -22,7 +48,10 @@ export default class App extends React.Component {
 		format: 'wild',
 		drafting: false,
 		draft: [],
-		showImageUrl: null
+		showImageUrl: null,
+		showImageX: 0,
+		showImageY: 0,
+		showSettings: false
 	};
 
 	componentDidMount() {
@@ -63,12 +92,26 @@ export default class App extends React.Component {
 		this.setState({username: evt.target.value});
 	};
 
-	handleClassChange = evt => {
-		this.setState({class: evt.target.value});
+	handleFileChange = evt => {
+		this.setState({selectedFile: evt.target.value});
 	};
 
-	handleFormatChange = evt => {
-		this.setState({format: evt.target.value});
+	handleClassChange = (evt, index, value) => {
+		this.setState({class: value});
+		this.handleSettingsChanged();
+	};
+
+	handleFormatChange = (evt, index, value) => {
+		this.setState({format: value});
+		this.handleSettingsChanged();
+	};
+
+	handleClickSettingsBtn = () => {
+		this.setState({showSettings: true});
+	};
+
+	handleCloseSettings = () => {
+		this.setState({showSettings: false});
 	};
 
 	handleClickLoadBtn = () => {
@@ -92,6 +135,13 @@ export default class App extends React.Component {
 
 		const file = this.fileupload.files[0];
 		reader.readAsText(file, "UTF-8");
+	};
+
+	handleSettingsChanged = () => {
+		this.setState({
+			deck: [],
+			drafting: false
+		})
 	};
 
 	handleClickGenerateDeckBtn = () => {
@@ -269,124 +319,231 @@ export default class App extends React.Component {
 		});
 	};
 
-	handleMouseOver = evt => {
-		this.setState({showImageUrl: evt.target.parentNode.dataset.imageUrl});
+	handleMouseMove = evt => {
+		this.setState({
+			showImageUrl: evt.target.parentNode.dataset.imageUrl,
+			showImageX: Math.min(evt.clientX, window.innerWidth - 300),
+			showImageY: Math.min(evt.clientY, window.innerHeight - 450)
+		});
 	};
 
-	handleMouseOut = evt => {
+	handleMouseLeave = () => {
+		console.log('leave')
 		this.setState({showImageUrl: null});
 	};
 
 	render() {
 		return (
-			this.state.status === Status.NOT_INITIALIZED ? <div>{this.state.status}</div> :
-			<div>
-				<div className={classes['input-area']}>
-					<div className={classes['user-load']}>
-						<label>Hearthpwn username</label>
-						<input type="text" onChange={this.handleInputChange}
-						       value={this.state.username}/>
-						<input type="button" onClick={this.handleClickLoadBtn}
-						       value="load user data"/>
-					</div>
-					<div className={classes['file-load']}>
-						<label>Hearthpwn collection</label>
-						<input type="file" ref={x => this.fileupload = x} />
-						<input type="button" onClick={this.handleClickLoadFileBtn}
-						       value="load file"/>
-					</div>
-				</div>
-				{(this.state.status === Status.LOADING ||
-					this.state.status === Status.NOT_LOADED ||
-					this.state.status === Status.COLLECTION_PRIVATE) && this.state.status
-				}
-				{this.state.status === Status.LOADED &&
-					<div className={classes.controls}>
-						<select value={this.state.format} onChange={this.handleFormatChange}>
-							<option value="wild">Wild</option>
-							<option value="standard">Standard</option>
-						</select>
-						<select value={this.state.class} onChange={this.handleClassChange}>
-							<option value="DRUID">Druid</option>
-							<option value="HUNTER">Hunter</option>
-							<option value="MAGE">Mage</option>
-							<option value="PALADIN">Paladin</option>
-							<option value="PRIEST">Priest</option>
-							<option value="ROGUE">Rogue</option>
-							<option value="SHAMAN">Shaman</option>
-							<option value="WARLOCK">Warlock</option>
-							<option value="WARRIOR">Warrior</option>
-						</select>
-						<input
-							type="button"
-							value="Generate deck"
-							onClick={this.handleClickGenerateDeckBtn}
-						/>
-						<input
-							type="button"
-							value="Arena draft"
-							onClick={this.handleClickArenaDraftBtn}
-						/>
-					</div>
-				}
-				{this.state.drafting &&
-					<div className={classes['draft-div']}>
-						{this.state.draft.map(card => {
-							return (
-								<img
-									key={card.id}
-									src={card.imageUrl}
-									width="212"
-									height="300"
-								  onClick={() => this.pickCard(card)}
-								/>
-							);
-						})}
-					</div>
-				}
-				{this.state.deck.length > 0 &&
-					<div className={classes.filedata}>
-						<table>
-							<thead>
-							<tr>
-								<th>Class</th>
-								<th>Name</th>
-								<th>Mana</th>
-								<th>Count</th>
-							</tr>
-							</thead>
-							<tbody>
-							{this.state.deck.map(card => {
-								const cls = card.class === 'NONE' ?
-									'Neutral' :
-									_.upperFirst(card.class.toLowerCase());
-
-								return (
-									<tr
-										key={card.id}
-										className={card.class === 'NONE' ? classes.basic : classes.class}
-									  data-rarity={card.rarity}
-									  data-image-url={card.imageUrl}
-										onMouseOver={this.handleMouseOver}
-										onMouseOut={this.handleMouseOut}
+			this.state.status === Status.NOT_INITIALIZED ?
+				<RefreshIndicator
+					size={50}
+					left={window.innerWidth / 2}
+					top={window.innerHeight / 4}
+					status="loading"
+				/> :
+			<div className={classes.app}>
+				<Paper>
+					<Tabs>
+						<Tab label="Load with hearthpwn username">
+							<div className={classes['input-area']}>
+								<div className={classes.wrapper}>
+									<TextField
+										hintText="Hearthpwn username"
+										onChange={this.handleInputChange}
+										name="name"
+										value={this.state.username}
+										style={{flex: 1}}
+									/>
+									<FlatButton
+										onClick={this.handleClickLoadBtn}
+										label="load collection"
+										style={{flex: 1, marginLeft: '10px'}}
+									/>
+								</div>
+							</div>
+						</Tab>
+						<Tab label="Load with HTML file">
+							<div className={classes['input-area']}>
+								<div className={classes.wrapper}>
+									<div className={classes['file-label-wrapper']}>
+										<label>{this.state.selectedFile}</label>
+									</div>
+									<RaisedButton
+										secondary
+										icon={<FileUploadIcon />}
+										containerElement='label'
+										label='Select file'
+										style={{flex: '0 0 auto'}}
+										buttonStyle={{borderRadius: '0 2px 2px 0'}}
 									>
-										<td>{cls}</td>
-										<td>{card.name}</td>
-										<td>{card.manaCost}</td>
-										<td>{card.count}</td>
-									</tr>
+										<input
+											type="file"
+											className="hidden"
+											ref={x => this.fileupload = x}
+										  onChange={this.handleFileChange}
+										/>
+									</RaisedButton>
+									<FlatButton
+										onClick={this.handleClickLoadFileBtn}
+										label="load collection"
+										style={{flex: 1, marginLeft: '10px'}}
+									/>
+								</div>
+							</div>
+						</Tab>
+					</Tabs>
+				</Paper>
+				<Divider style={{margin: '10px 0'}} />
+				<Paper>
+					{this.state.status === Status.COLLECTION_PRIVATE &&
+						<div style={{padding: '12px'}}>{this.state.status}</div>
+					}
+					{this.state.status === Status.LOADED &&
+						<Toolbar>
+							<ToolbarGroup firstChild>
+								<IconButton onClick={this.handleClickSettingsBtn}>
+									<SettingsIcon/>
+								</IconButton>
+							</ToolbarGroup>
+							<ToolbarGroup>
+								<FlatButton
+									label="Generate deck"
+									onClick={this.handleClickGenerateDeckBtn}
+								/>
+								<FlatButton
+									label="Arena draft"
+									onClick={this.handleClickArenaDraftBtn}
+								/>
+							</ToolbarGroup>
+						</Toolbar>
+					}
+					{this.state.drafting &&
+						<div className={classes['draft-div']}>
+							{this.state.draft.map(card => {
+								return (
+									<img
+										key={card.id}
+										src={card.imageUrl}
+										width="212"
+										height="300"
+									  onClick={() => this.pickCard(card)}
+									/>
 								);
 							})}
-								<tr style={{fontWeight: 500}}>
-									<td>Total</td>
-									<td></td>
-									<td></td>
-									<td>{this.state.deck.reduce((acc, c) => acc + c.count, 0)}</td>
-								</tr>
-							</tbody>
-						</table>
-						{this.state.showImageUrl && <img src={this.state.showImageUrl} />}
-					</div>
+						</div>
+					}
+					{this.state.deck.length > 0 &&
+						<div className={classes.filedata}>
+							<Table>
+								<TableHeader
+									displaySelectAll={false}
+									adjustForCheckbox={false}
+								>
+									<TableRow>
+										<TableHeaderColumn>Class</TableHeaderColumn>
+										<TableHeaderColumn>Name</TableHeaderColumn>
+										<TableHeaderColumn>Mana</TableHeaderColumn>
+										<TableHeaderColumn>Count</TableHeaderColumn>
+										<TableHeaderColumn style={{width: '20px'}}/>
+									</TableRow>
+								</TableHeader>
+								<TableBody displayRowCheckbox={false}>
+								{this.state.deck.map(card => {
+									const cls = card.class === 'NONE' ?
+										'Neutral' :
+										_.upperFirst(card.class.toLowerCase());
+
+									return (
+										<TableRow
+											key={card.id}
+											className={card.class === 'NONE' ? classes.basic : classes.class}
+										  data-image-url={card.imageUrl}
+											onMouseMove={this.handleMouseMove}
+											onMouseLeave={this.handleMouseLeave}
+										  style={{height: '30px'}}
+										>
+											<TableRowColumn style={{height: '30px'}}>
+												<Chip
+													backgroundColor={cls === 'Neutral' ? undefined : '#b2e7ff'}
+													labelStyle={{fontSize: '12px', lineHeight: '24px'}}
+												>
+													{cls}
+												</Chip>
+											</TableRowColumn>
+											<TableRowColumn style={{height: '30px'}}>{card.name}</TableRowColumn>
+											<TableRowColumn style={{height: '30px'}}>{card.manaCost}</TableRowColumn>
+											<TableRowColumn style={{height: '30px'}}>{card.count}</TableRowColumn>
+											<TableRowColumn style={{height: '30px', width: '20px'}}>
+												<div data-rarity={card.rarity} className={classes.rarity}/>
+											</TableRowColumn>
+										</TableRow>
+									);
+								})}
+									<TableRow style={{fontWeight: 500}}>
+										<TableRowColumn>Total</TableRowColumn>
+										<TableRowColumn></TableRowColumn>
+										<TableRowColumn></TableRowColumn>
+										<TableRowColumn>
+											{this.state.deck.reduce((acc, c) => acc + c.count, 0)}
+										</TableRowColumn>
+										<TableRowColumn></TableRowColumn>
+									</TableRow>
+								</TableBody>
+							</Table>
+						</div>
+					}
+				</Paper>
+				{this.state.status === Status.LOADING &&
+					<RefreshIndicator
+						size={50}
+						left={window.innerWidth / 2}
+						top={window.innerHeight / 4}
+						status="loading"
+					/>
+				}
+				<Dialog
+					title="Settings"
+					open={this.state.showSettings}
+				  onRequestClose={this.handleCloseSettings}
+				  actions={[
+				  	<FlatButton label="Close" onClick={this.handleCloseSettings}/>
+				  ]}
+			  >
+					<SelectField
+						floatingLabelText="Format"
+						value={this.state.format}
+						onChange={this.handleFormatChange}
+					>
+						<MenuItem value="wild" primaryText="Wild"/>
+						<MenuItem value="standard" primaryText="Standard"/>
+					</SelectField>
+					<SelectField
+						floatingLabelText="Class"
+						value={this.state.class}
+						onChange={this.handleClassChange}
+					>
+						<MenuItem value="DRUID" primaryText="Druid"/>
+						<MenuItem value="HUNTER" primaryText="Hunter"/>
+						<MenuItem value="MAGE" primaryText="Mage"/>
+						<MenuItem value="PALADIN" primaryText="Paladin"/>
+						<MenuItem value="PRIEST" primaryText="Priest"/>
+						<MenuItem value="ROGUE" primaryText="Rogue"/>
+						<MenuItem value="SHAMAN" primaryText="Shaman"/>
+						<MenuItem value="WARLOCK" primaryText="Warlock"/>
+						<MenuItem value="WARRIOR" primaryText="Warrior"/>
+					</SelectField>
+				</Dialog>
+				{this.state.showImageUrl &&
+					<img
+						src={this.state.showImageUrl}
+					  style={{
+					  	zIndex: 999,
+					  	pointerEvents: 'none',
+					  	position: 'absolute',
+						  left: this.state.showImageX + 'px',
+						  top: this.state.showImageY + 'px',
+					  }}
+					/>
 				}
 			</div>
 		);

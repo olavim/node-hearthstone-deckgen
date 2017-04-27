@@ -17,7 +17,7 @@ const debug = _debug('hs-decker:server');
 			const compiler = webpack(webpackConfig);
 			const {publicPath} = webpackConfig.output;
 
-			app.use(require('webpackDevMiddleware')(compiler, {
+			app.use(require('webpack-dev-middleware')(compiler, {
 				publicPath,
 				contentBase: paths.src(),
 				hot: true,
@@ -26,7 +26,7 @@ const debug = _debug('hs-decker:server');
 				lazy: false,
 				stats: config.compiler_stats
 			}));
-			app.use(require('webpackHotMiddleware')(compiler));
+			app.use(require('webpack-hot-middleware')(compiler));
 
 			app.use(express.static(paths.src('static')));
 		} else {
