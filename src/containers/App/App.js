@@ -14,7 +14,7 @@ const Status = {
 export default class App extends React.Component {
 	state = {
 		status: Status.NOT_INITIALIZED,
-		username: 'tilastokeskus',
+		username: '',
 		standardCards: null,
 		cards: [],
 		deck: [],

@@ -15,7 +15,7 @@ const webpackConfig = {
 	target: 'web',
 	devtool: config.compiler_devtool,
 	resolve: {
-		root: paths.src(),
+		root: __PROD__ ? paths.dist() : paths.src(),
 		extensions: ['', '.js', '.jsx', '.json'],
 		alias: {
 			react: path.resolve('./node_modules/react'),
@@ -81,7 +81,7 @@ webpackConfig.module.loaders = [
 		query: {
 			cacheDirectory: true,
 			plugins: ['transform-runtime'],
-			presets: ['es2015-node6/object-rest', 'es2016', 'es2017', 'stage-1', 'react'],
+			presets: ['es2015-node6/object-rest', 'es2015', 'es2016', 'es2017', 'stage-1', 'react'],
 			env: {production: {presets: ['react-optimize']}}
 		}
 	},
