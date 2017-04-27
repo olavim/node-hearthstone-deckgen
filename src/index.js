@@ -29,7 +29,6 @@ const muiTheme = getMuiTheme({
 		accentColor: '#aaa'
 	}
 });
-console.log(muiTheme);
 
 ReactDOM.render(
 	<MuiThemeProvider muiTheme={muiTheme}>

@@ -11,7 +11,9 @@ import {
 	SelectField,
 	Dialog,
 	IconButton,
-	Chip
+	Chip,
+	Slider,
+	Toggle
 } from 'material-ui';
 import {
 	Table,
@@ -22,6 +24,7 @@ import {
 	TableRowColumn
 } from 'material-ui/Table';
 import {Tabs, Tab} from 'material-ui/Tabs';
+import {Card, CardHeader, CardText} from 'material-ui/Card';
 import {Toolbar, ToolbarGroup} from 'material-ui/Toolbar';
 import RefreshIndicator from 'material-ui/RefreshIndicator';
 import FileUploadIcon from 'material-ui/svg-icons/file/file-upload';
@@ -36,6 +39,18 @@ const Status = {
 	COLLECTION_PRIVATE: 'Error: your collection is private.'
 };
 
+const CardClass = {
+	DRUID: 'Druid',
+	HUNTER: 'Hunter',
+	MAGE: 'Mage',
+	PALADIN: 'Paladin',
+	PRIEST: 'Priest',
+	ROGUE: 'Rogue',
+	SHAMAN: 'Shaman',
+	WARLOCK: 'Warlock',
+	WARRIOR: 'Warrior'
+};
+
 export default class App extends React.Component {
 	state = {
 		status: Status.NOT_INITIALIZED,
@@ -44,10 +59,13 @@ export default class App extends React.Component {
 		standardCards: null,
 		cards: [],
 		deck: [],
-		class: 'DRUID',
+		class: 'RANDOM',
+		randomClass: null,
 		format: 'wild',
 		drafting: false,
 		draft: [],
+		useClassCardPercentage: true,
+		classCardPercentage: 0.5,
 		showImageUrl: null,
 		showImageX: 0,
 		showImageY: 0,
@@ -106,6 +124,14 @@ export default class App extends React.Component {
 		this.handleSettingsChanged();
 	};
 
+	handleClassCardPercentageChange = (evt, value) => {
+		this.setState({classCardPercentage: value});
+	};
+
+	handleClickClassCardPercentageToggle = (evt, value) => {
+		this.setState({useClassCardPercentage: value});
+	};
+
 	handleClickSettingsBtn = () => {
 		this.setState({showSettings: true});
 	};
@@ -139,25 +165,37 @@ export default class App extends React.Component {
 
 	handleSettingsChanged = () => {
 		this.setState({
-			deck: [],
+			deck: this.state.drafting ? [] : this.state.deck,
 			drafting: false
 		})
 	};
 
 	handleClickGenerateDeckBtn = () => {
+		let cls = this.state.class;
+		if (cls === 'RANDOM') {
+			cls = _.sample(Object.keys(CardClass));
+			this.setState({randomClass: cls});
+		}
+
 		const allCards = JSON.parse(JSON.stringify(this.state.cards));
-		let allowedCards = allCards;
+		let allowedCards = allCards.filter(c => {
+			return c.class === cls || c.class === 'NONE';
+		});
+
 		if (this.state.format === 'standard') {
 			allowedCards = allCards.filter(c => this.state.standardCards.includes(c.name));
 		}
 
-		const classCards = allowedCards.filter(c => c.class === this.state.class);
+		const classCards = allowedCards.filter(c => c.class === cls);
 		const basicCards = allowedCards.filter(c => c.class === 'NONE');
 
 		const deck = {};
 
 		for (let i = 0; i < 30; i++) {
-			const cards = Math.random() < 0.5 ? classCards : basicCards;
+			let cards = allowedCards;
+			if (this.state.useClassCardPercentage) {
+				cards = Math.random() < this.state.classCardPercentage ? classCards : basicCards;
+			}
 
 			const index = getRandomInt(0, cards.length - 1);
 			const card = cards[index];
@@ -204,28 +242,29 @@ export default class App extends React.Component {
 
 	handleClickArenaDraftBtn = () => {
 		this.setState({
+			randomClass: _.sample(Object.keys(CardClass)),
 			drafting: true,
 			deck: []
-		});
-
-		this.draft();
+		}, this.draft);
 	};
 
 	draft = () => {
 		let r = Math.random() * 100;
 		const round = this.state.deck.reduce((acc, c) => acc + c.count, 0);
-		const rareRound = round === 0 || round === 10 || round === 20 || round === 30;
-		while (rareRound && r < 76) {
+		const rareRound = round === 0 || round === 9 || round === 19 || round >= 26;//
+		while (rareRound && r < 68) {
 			r = Math.random() * 100;
 		}
 
 		let rarity = 2;
-		if (r >= 76 && r < 96) rarity = 3;
-		if (r >= 96 && r < 99) rarity = 4;
-		if (r >= 99) rarity = 5;
+		if (r >= 68 && r < 88) rarity = 3;
+		if (r >= 88 && r < 97) rarity = 4;
+		if (r >= 97) rarity = 5;
+
+		const cls = this.state.class === 'RANDOM' ? this.state.randomClass : this.state.class;
 
 		const allCards = JSON.parse(JSON.stringify(this.state.cards)).filter(c => {
-			return c.class === this.state.class || c.class === 'NONE';
+			return c.class === cls || c.class === 'NONE';
 		});
 
 		let allowedCards = allCards;
@@ -255,8 +294,25 @@ export default class App extends React.Component {
 
 			const shuffled = _.shuffle(potentialCards);
 			const needed = 3 - cards.length;
-			const taken = _.take(shuffled, needed);
-			cards.push(...taken);
+			for (let i = 0; i < needed; i++) {
+				if (shuffled.length === 0) {
+					break;
+				}
+
+				// Class card boost.
+				if (Math.random() < 0.2) {
+					const index = shuffled.findIndex(c => c.class === cls);
+
+					if (index !== -1) {
+						const taken = shuffled.splice(index, 1)[0];
+						cards.push(taken);
+						continue;
+					}
+				}
+
+				const taken = shuffled.splice(0, 1)[0];
+				cards.push(taken);
+			}
 
 			rarity--;
 		}
@@ -279,9 +335,7 @@ export default class App extends React.Component {
 		this.setState({
 			drafting: numCards < 29,
 			deck: newDeck
-		});
-
-		this.draft();
+		}, this.draft);
 	};
 
 	parseData = data => {
@@ -328,7 +382,6 @@ export default class App extends React.Component {
 	};
 
 	handleMouseLeave = () => {
-		console.log('leave')
 		this.setState({showImageUrl: null});
 	};
 
@@ -344,11 +397,11 @@ export default class App extends React.Component {
 			<div className={classes.app}>
 				<Paper>
 					<Tabs>
-						<Tab label="Load with hearthpwn username">
+						<Tab label="Load from HearthPwn">
 							<div className={classes['input-area']}>
 								<div className={classes.wrapper}>
 									<TextField
-										hintText="Hearthpwn username"
+										hintText="HearthPwn username"
 										onChange={this.handleInputChange}
 										name="name"
 										value={this.state.username}
@@ -362,7 +415,7 @@ export default class App extends React.Component {
 								</div>
 							</div>
 						</Tab>
-						<Tab label="Load with HTML file">
+						<Tab label="Load from HTML file">
 							<div className={classes['input-area']}>
 								<div className={classes.wrapper}>
 									<div className={classes['file-label-wrapper']}>
@@ -509,29 +562,58 @@ export default class App extends React.Component {
 				  	<FlatButton label="Close" onClick={this.handleCloseSettings}/>
 				  ]}
 			  >
-					<SelectField
-						floatingLabelText="Format"
-						value={this.state.format}
-						onChange={this.handleFormatChange}
-					>
-						<MenuItem value="wild" primaryText="Wild"/>
-						<MenuItem value="standard" primaryText="Standard"/>
-					</SelectField>
-					<SelectField
-						floatingLabelText="Class"
-						value={this.state.class}
-						onChange={this.handleClassChange}
-					>
-						<MenuItem value="DRUID" primaryText="Druid"/>
-						<MenuItem value="HUNTER" primaryText="Hunter"/>
-						<MenuItem value="MAGE" primaryText="Mage"/>
-						<MenuItem value="PALADIN" primaryText="Paladin"/>
-						<MenuItem value="PRIEST" primaryText="Priest"/>
-						<MenuItem value="ROGUE" primaryText="Rogue"/>
-						<MenuItem value="SHAMAN" primaryText="Shaman"/>
-						<MenuItem value="WARLOCK" primaryText="Warlock"/>
-						<MenuItem value="WARRIOR" primaryText="Warrior"/>
-					</SelectField>
+					<Card>
+						<CardHeader title="Selected cards"/>
+						<CardText>
+							<SelectField
+								style={{width: '100%'}}
+								floatingLabelText="Format"
+								value={this.state.format}
+								onChange={this.handleFormatChange}
+							>
+								<MenuItem value="wild" primaryText="Wild"/>
+								<MenuItem value="standard" primaryText="Standard"/>
+							</SelectField>
+							<SelectField
+								style={{width: '100%'}}
+								floatingLabelText="Class"
+								value={this.state.class}
+								onChange={this.handleClassChange}
+							>
+								<MenuItem value="RANDOM" primaryText="Random"/>
+								<Divider/>
+								{Object.keys(CardClass).map(key => {
+									return <MenuItem value={key} primaryText={CardClass[key]}/>
+								})}
+							</SelectField>
+						</CardText>
+					</Card>
+					<Card expanded={this.state.useClassCardPercentage}>
+						<CardHeader
+							title="Class card percentage"
+						  subtitle="Controls the likelyhood of a random card being a class card."
+						  subtitleStyle={{fontWeight: 400}}
+						/>
+						<CardText>
+							<Toggle
+								toggled={this.state.useClassCardPercentage}
+								onToggle={this.handleClickClassCardPercentageToggle}
+								labelPosition="right"
+								label={this.state.useClassCardPercentage ? 'Enabled' : 'Disabled'}
+							/>
+						</CardText>
+						<CardText expandable={true}>
+							<Slider
+								onChange={this.handleClassCardPercentageChange}
+								value={this.state.classCardPercentage}
+							  disabled={!this.state.useClassCardPercentage}
+							  sliderStyle={{margin: 0}}
+							/>
+							<label style={{color: '#888'}}>
+								Probability: {Math.floor(this.state.classCardPercentage * 100)} %
+							</label>
+						</CardText>
+					</Card>
 				</Dialog>
 				{this.state.showImageUrl &&
 					<img
